@@ -9,7 +9,7 @@ class Stock(models.Model):
 
     class Meta:
         db_table = 'stocks'
-        managed = False
+        managed = True
 
     def __str__(self):
         return f"{self.symbol} — {self.company}"
@@ -34,7 +34,7 @@ class StockPrice(models.Model):
 
     class Meta:
         db_table = 'stock_price'
-        managed = False
+        managed = True
         unique_together = ('stock', 'date')
         ordering = ['-date']
 
