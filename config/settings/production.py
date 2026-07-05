@@ -21,3 +21,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Whitenoise for static files in production
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Azure PostgreSQL requires SSL
+DATABASES['default']['OPTIONS'] = {'sslmode': 'require'}
