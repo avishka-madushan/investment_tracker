@@ -117,3 +117,8 @@ TRADINGVIEW_WS_URL = config(
 
 # Pagination
 DEFAULT_PAGE_SIZE = 20
+
+# Trusted Origins for Azure CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.azurewebsites.net',
+]
