@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Analytics</h2>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h5>Avg Holding Days</h5>
+            <h3>{{ avg_holding_days|floatformat:1 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <div class="card p-3">
+            <h5>Monthly Realized P/L</h5>
+            <canvas id="monthlyChart" height="80"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Yearly Summary</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover text-center">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Total Trades</th>
+                            <th>Realized P/L</th>
+                            <th>Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for y in yearly_data %}
+                        <tr>
+                            <td>{{ y.year }}</td>
+                            <td>{{ y.total_trades }}</td>
+                            <td class="{% if y.realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ y.realized_pnl|floatformat:2 }}
+                            </td>
+                            <td>{{ y.win_rate|floatformat:1 }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">No yearly data.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5 class="text-success">Top 5 Most Profitable Stocks</h5>
+            <table class="table table-dark table-sm text-center">
+                <tr><th>Symbol</th><th>P/L</th></tr>
+                {% for s in top_5_stocks %}
+                <tr>
+                    <td>{{ s.stock__symbol }}</td>
+                    <td class="text-success">${{ s.total_pnl|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h5 class="text-danger">Top 5 Worst Performing Stocks</h5>
+            <table class="table table-dark table-sm text-center">
+                <tr><th>Symbol</th><th>P/L</th></tr>
+                {% for s in worst_5_stocks %}
+                <tr>
+                    <td>{{ s.stock__symbol }}</td>
+                    <td class="text-danger">${{ s.total_pnl|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3 text-center">
+            <h5>Best Single Trade</h5>
+            {% if best_trade %}
+                <h3 class="text-success">{{ best_trade.stock.symbol }}</h3>
+                <p>+${{ best_trade.profit_loss|floatformat:2 }} ({{ best_trade.profit_loss_percent|floatformat:2 }}%)</p>
+                <small>Bought: {{ best_trade.buy_date }} | Sold: {{ best_trade.sell_date }}</small>
+            {% else %}
+                <p>N/A</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 text-center">
+            <h5>Worst Single Trade</h5>
+            {% if worst_trade %}
+                <h3 class="text-danger">{{ worst_trade.stock.symbol }}</h3>
+                <p>${{ worst_trade.profit_loss|floatformat:2 }} ({{ worst_trade.profit_loss_percent|floatformat:2 }}%)</p>
+                <small>Bought: {{ worst_trade.buy_date }} | Sold: {{ worst_trade.sell_date }}</small>
+            {% else %}
+                <p>N/A</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ months|json_script:"monthsData" }}
+{{ pnl_values|json_script:"pnlData" }}
+<script>
+    const months = JSON.parse(document.getElementById('monthsData').textContent);
+    const pnl = JSON.parse(document.getElementById('pnlData').textContent);
+    
+    if (months.length > 0) {
+        const ctx = document.getElementById('monthlyChart').getContext('2d');
+        const backgroundColors = pnl.map(value => value >= 0 ? 'rgba(0, 230, 118, 0.6)' : 'rgba(255, 23, 68, 0.6)');
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: months,
+                datasets: [{
+                    label: 'Realized P/L',
+                    data: pnl,
+                    backgroundColor: backgroundColors,
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+</script>
+{% endblock %}

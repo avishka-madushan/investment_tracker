@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<h2 class="mb-4">Cash Account</h2>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <h5>Current Cash Balance</h5>
+            <h2 class="text-primary">${{ current_balance|floatformat:2 }}</h2>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card p-3">
+            <h5>Deposit / Withdraw</h5>
+            <form method="post" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-3">
+                    {{ form.entry_type|as_crispy_field }}
+                </div>
+                <div class="col-md-3">
+                    {{ form.amount|as_crispy_field }}
+                </div>
+                <div class="col-md-3">
+                    {{ form.date|as_crispy_field }}
+                </div>
+                <div class="col-md-12">
+                    {{ form.description|as_crispy_field }}
+                </div>
+                <div class="col-12 mt-2">
+                    <button type="submit" class="btn btn-success">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3">
+    <h5>Cash Transaction History</h5>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped text-center">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in cash_entries %}
+                <tr>
+                    <td>{{ entry.date }}</td>
+                    <td>{{ entry.get_entry_type_display }}</td>
+                    <td class="{% if entry.amount >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
+                        ${{ entry.amount|floatformat:2 }}
+                    </td>
+                    <td>{{ entry.description }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No cash transactions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

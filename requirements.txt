@@ -1,0 +1,12 @@
+Django>=4.2,<5.0
+mysqlclient
+python-decouple
+whitenoise
+gunicorn
+django-crispy-forms
+crispy-bootstrap5
+requests
+websocket-client
+pandas
+numpy
+sqlalchemy

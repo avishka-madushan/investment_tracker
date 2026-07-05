@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Total Portfolio Value</h5>
+            <h3 class="text-primary">${{ total_portfolio_value|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Net Profit/Loss</h5>
+            <h3 class="{% if net_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ net_pnl|floatformat:2 }}
+            </h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Cash Balance</h5>
+            <h3>${{ cash_balance|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Realized P/L</h5>
+            <h3 class="{% if total_realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ total_realized_pnl|floatformat:2 }}
+            </h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Unrealized P/L</h5>
+            <h3 class="{% if total_unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ total_unrealized_pnl|floatformat:2 }}
+            </h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-3">
+            <h5>Win Rate</h5>
+            <h3 class="text-info">{{ win_rate|floatformat:1 }}%</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Portfolio Value (Last 30 Days)</h5>
+            <canvas id="portfolioChart" height="100"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Current Open Holdings</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover text-center">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Company</th>
+                            <th>Quantity</th>
+                            <th>Avg Buy Price</th>
+                            <th>Current Price</th>
+                            <th>Current Value</th>
+                            <th>Unrealized P/L</th>
+                            <th>P/L %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in holdings %}
+                        <tr>
+                            <td>{{ h.symbol }}</td>
+                            <td>{{ h.company }}</td>
+                            <td>{{ h.quantity|floatformat:0 }}</td>
+                            <td>${{ h.avg_price|floatformat:2 }}</td>
+                            <td>${{ h.current_price|floatformat:2 }}</td>
+                            <td>${{ h.current_value|floatformat:2 }}</td>
+                            <td class="{% if h.unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                ${{ h.unrealized_pnl|floatformat:2 }}
+                            </td>
+                            <td class="{% if h.unrealized_pnl_percent >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ h.unrealized_pnl_percent|floatformat:2 }}%
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8">No open holdings.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3 text-center">
+            <h5>Best Performing Stock</h5>
+            {% if best_stock %}
+                <h3 class="text-success">{{ best_stock.stock.symbol }}</h3>
+                <p>${{ best_stock.profit_loss|floatformat:2 }} ({{ best_stock.profit_loss_percent|floatformat:2 }}%)</p>
+            {% else %}
+                <p>N/A</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 text-center">
+            <h5>Worst Performing Stock</h5>
+            {% if worst_stock %}
+                <h3 class="text-danger">{{ worst_stock.stock.symbol }}</h3>
+                <p>${{ worst_stock.profit_loss|floatformat:2 }} ({{ worst_stock.profit_loss_percent|floatformat:2 }}%)</p>
+            {% else %}
+                <p>N/A</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_dates|json_script:"chartDates" }}
+{{ chart_values|json_script:"chartValues" }}
+<script>
+    const dates = JSON.parse(document.getElementById('chartDates').textContent);
+    const values = JSON.parse(document.getElementById('chartValues').textContent);
+    
+    if (dates.length > 0) {
+        const ctx = document.getElementById('portfolioChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Portfolio Value',
+                    data: values,
+                    borderColor: '#928DAB',
+                    backgroundColor: 'rgba(146, 141, 171, 0.2)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: false }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

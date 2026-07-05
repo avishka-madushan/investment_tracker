@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Closed Investments</h2>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h6>Total Trades</h6>
+            <h3>{{ total_trades }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h6>Winning / Losing</h6>
+            <h3><span class="text-success">{{ winning_trades }}</span> / <span class="text-danger">{{ losing_trades }}</span></h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h6>Win Rate</h6>
+            <h3 class="text-info">{{ win_rate|floatformat:1 }}%</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h6>Realized P/L</h6>
+            <h3 class="{% if total_realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ total_realized_pnl|floatformat:2 }}
+            </h3>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="mb-4 row g-3">
+    <div class="col-auto">
+        <input type="text" name="symbol" class="form-control" placeholder="Search Symbol..." value="{{ symbol_query|default_if_none:'' }}">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
+</form>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover text-center">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Company</th>
+                    <th>Buy Date</th>
+                    <th>Sell Date</th>
+                    <th>Days</th>
+                    <th>Quantity</th>
+                    <th>Buy Price</th>
+                    <th>Sell Price</th>
+                    <th>P/L</th>
+                    <th>P/L %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in page_obj %}
+                <tr>
+                    <td>{{ inv.stock.symbol }}</td>
+                    <td>{{ inv.stock.company }}</td>
+                    <td>{{ inv.buy_date }}</td>
+                    <td>{{ inv.sell_date }}</td>
+                    <td>{{ inv.holding_days }}</td>
+                    <td>{{ inv.quantity|floatformat:0 }}</td>
+                    <td>${{ inv.buy_price|floatformat:2 }}</td>
+                    <td>${{ inv.sell_price|floatformat:2 }}</td>
+                    <td class="{% if inv.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ${{ inv.profit_loss|floatformat:2 }}
+                    </td>
+                    <td class="{% if inv.profit_loss_percent >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ inv.profit_loss_percent|floatformat:2 }}%
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10">No closed investments found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1{% if symbol_query %}&symbol={{ symbol_query }}{% endif %}">&laquo; First</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if symbol_query %}&symbol={{ symbol_query }}{% endif %}">Previous</a></li>
+            {% endif %}
+
+            <li class="page-item disabled"><a class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</a></li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if symbol_query %}&symbol={{ symbol_query }}{% endif %}">Next</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if symbol_query %}&symbol={{ symbol_query }}{% endif %}">Last &raquo;</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endblock %}

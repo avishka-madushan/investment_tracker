@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Stock Analysis</h2>
+
+<form method="get" class="mb-4">
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <select name="stock_id" class="form-select">
+                <option value="">— Select Stock —</option>
+                {% for s in stocks %}
+                <option value="{{ s.id }}" {% if selected_stock and selected_stock.id == s.id %}selected{% endif %}>
+                    {{ s.symbol }} - {{ s.company }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Analyze</button>
+        </div>
+    </div>
+</form>
+
+{% if selected_stock %}
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h5>Total Trades</h5>
+            <h3>{{ total_trades }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h5>Total Realized P/L</h5>
+            <h3 class="{% if total_realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ total_realized_pnl|floatformat:2 }}
+            </h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h5>Avg Holding Days</h5>
+            <h3>{{ avg_holding_days|floatformat:1 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <h5>Win Rate</h5>
+            <h3 class="text-info">{{ win_rate|floatformat:1 }}%</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Price History & SMAs (Last 90 Days)</h5>
+            <canvas id="priceChart" height="100"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card p-3">
+            <h5>Transaction History for {{ selected_stock.symbol }}</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-striped text-center">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td>{{ tx.date }}</td>
+                            <td class="{% if tx.transaction_type == 'BUY' %}text-success{% else %}text-danger{% endif %} fw-bold">
+                                {{ tx.transaction_type }}
+                            </td>
+                            <td>{{ tx.quantity|floatformat:0 }}</td>
+                            <td>${{ tx.price|floatformat:2 }}</td>
+                            <td>{{ tx.notes }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5">No transactions for this stock.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ chart_dates|json_script:"chartDates" }}
+{{ chart_close|json_script:"chartClose" }}
+{{ chart_sma4|json_script:"chartSma4" }}
+{{ chart_sma9|json_script:"chartSma9" }}
+{{ chart_sma50|json_script:"chartSma50" }}
+
+<script>
+    const dates = JSON.parse(document.getElementById('chartDates').textContent);
+    const close = JSON.parse(document.getElementById('chartClose').textContent);
+    const sma4 = JSON.parse(document.getElementById('chartSma4').textContent);
+    const sma9 = JSON.parse(document.getElementById('chartSma9').textContent);
+    const sma50 = JSON.parse(document.getElementById('chartSma50').textContent);
+
+    if (dates.length > 0) {
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    { label: 'Close Price', data: close, borderColor: '#ffffff', backgroundColor: 'transparent', tension: 0.1 },
+                    { label: 'SMA 4', data: sma4, borderColor: '#00e676', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
+                    { label: 'SMA 9', data: sma9, borderColor: '#29b6f6', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
+                    { label: 'SMA 50', data: sma50, borderColor: '#ff1744', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
+                ]
+            },
+            options: { responsive: true }
+        });
+    }
+</script>
+{% endif %}
+{% endblock %}

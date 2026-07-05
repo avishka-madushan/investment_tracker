@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Current Holdings</h2>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover text-center">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Company</th>
+                    <th>Sector</th>
+                    <th>Quantity</th>
+                    <th>Avg Buy Price</th>
+                    <th>Latest Close</th>
+                    <th>Current Value</th>
+                    <th>Unrealized P/L</th>
+                    <th>P/L %</th>
+                    <th>SMA 4</th>
+                    <th>SMA 9</th>
+                    <th>SMA 50</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in holdings %}
+                <tr>
+                    <td><a href="{% url 'analytics:chart' h.stock_id %}" target="_blank">{{ h.symbol }}</a></td>
+                    <td>{{ h.company }}</td>
+                    <td>{{ h.sector }}</td>
+                    <td>{{ h.quantity|floatformat:0 }}</td>
+                    <td>${{ h.avg_price|floatformat:2 }}</td>
+                    <td>${{ h.latest_price|floatformat:2 }}</td>
+                    <td>${{ h.current_value|floatformat:2 }}</td>
+                    <td class="{% if h.unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ${{ h.unrealized_pnl|floatformat:2 }}
+                    </td>
+                    <td class="{% if h.unrealized_pnl_percent >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        {{ h.unrealized_pnl_percent|floatformat:2 }}%
+                    </td>
+                    <td>{{ h.sma_4|default_if_none:"-"|floatformat:2 }}</td>
+                    <td>{{ h.sma_9|default_if_none:"-"|floatformat:2 }}</td>
+                    <td>{{ h.sma_50|default_if_none:"-"|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="12">No current holdings.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold fs-5">
+                    <td colspan="6" class="text-end">Total:</td>
+                    <td>${{ total_current_value|floatformat:2 }}</td>
+                    <td class="{% if total_unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                        ${{ total_unrealized_pnl|floatformat:2 }}
+                    </td>
+                    <td colspan="4"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}
