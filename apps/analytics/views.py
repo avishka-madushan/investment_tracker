@@ -48,15 +48,15 @@ def analytics_view(request):
         })
         
     # Top 5 most profitable
-    top_5_stocks = closed_investments.values('stock__symbol').annotate(total_pnl=Sum('profit_loss')).order_by('-total_pnl')[:5]
+    top_5_stocks = closed_investments.values('stock__symbol').annotate(total_pnl=Sum('profit_loss')).filter(total_pnl__gt=0).order_by('-total_pnl')[:5]
     
-    # Top 5 worst
-    worst_5_stocks = closed_investments.values('stock__symbol').annotate(total_pnl=Sum('profit_loss')).order_by('total_pnl')[:5]
+    # Top 5 worst (only losses)
+    worst_5_stocks = closed_investments.values('stock__symbol').annotate(total_pnl=Sum('profit_loss')).filter(total_pnl__lt=0).order_by('total_pnl')[:5]
     
     avg_holding_days = closed_investments.aggregate(Avg('holding_days'))['holding_days__avg'] or 0
     
-    best_trade = closed_investments.order_by('-profit_loss').first()
-    worst_trade = closed_investments.order_by('profit_loss').first()
+    best_trade = closed_investments.filter(profit_loss__gt=0).order_by('-profit_loss').first()
+    worst_trade = closed_investments.filter(profit_loss__lt=0).order_by('profit_loss').first()
     
     context = {
         'months': months,

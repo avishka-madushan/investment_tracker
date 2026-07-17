@@ -21,7 +21,7 @@ def holdings_view(request):
         
         current_value = h.quantity * latest_price
         unrealized_pnl = current_value - (h.quantity * h.avg_price)
-        unrealized_pnl_percent = (unrealized_pnl / (h.quantity * h.avg_price)) * 100 if h.avg_price else 0
+        unrealized_pnl_percent = (unrealized_pnl / (h.quantity * h.avg_price)) * 100 if (h.avg_price and h.quantity) else 0
         
         total_current_value += current_value
         total_unrealized_pnl += unrealized_pnl

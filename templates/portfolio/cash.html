@@ -1,70 +1,138 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .custom-radio input:checked + label[for="deposit"] {
+        background: rgba(52, 211, 153, 0.15);
+        border-color: var(--success-color) !important;
+        font-weight: 600;
+    }
+    .custom-radio input:checked + label[for="withdraw"] {
+        background: rgba(248, 113, 113, 0.15);
+        border-color: var(--danger-color) !important;
+        font-weight: 600;
+    }
+    .custom-radio label:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    .input-group-text {
+        border-radius: 12px 0 0 12px;
+    }
+    .input-group .form-control {
+        border-radius: 0 12px 12px 0;
+    }
+    .input-group:focus-within .input-group-text {
+        border-color: rgba(99, 102, 241, 0.5);
+        color: #818cf8 !important;
+    }
+    
+    /* Style the date input to match the dark theme */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: 0.5;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Cash Account</h2>
-
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card p-3 text-center">
-            <h5>Current Cash Balance</h5>
-            <h2 class="text-primary">${{ current_balance|floatformat:2 }}</h2>
-        </div>
-    </div>
-    <div class="col-md-8">
-        <div class="card p-3">
-            <h5>Deposit / Withdraw</h5>
-            <form method="post" class="row g-3">
-                {% csrf_token %}
-                <div class="col-md-3">
-                    {{ form.entry_type|as_crispy_field }}
-                </div>
-                <div class="col-md-3">
-                    {{ form.amount|as_crispy_field }}
-                </div>
-                <div class="col-md-3">
-                    {{ form.date|as_crispy_field }}
-                </div>
-                <div class="col-md-12">
-                    {{ form.description|as_crispy_field }}
-                </div>
-                <div class="col-12 mt-2">
-                    <button type="submit" class="btn btn-success">Submit</button>
-                </div>
-            </form>
-        </div>
+<div class="d-flex justify-content-between align-items-end mb-4 pb-2 border-bottom" style="border-color: var(--glass-border) !important;">
+    <div>
+        <h2 class="mb-1">Cash Management</h2>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Deposit or withdraw funds from your account.</p>
     </div>
 </div>
 
-<div class="card p-3">
-    <h5>Cash Transaction History</h5>
-    <div class="table-responsive">
-        <table class="table table-dark table-striped text-center">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Amount</th>
-                    <th>Description</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in cash_entries %}
-                <tr>
-                    <td>{{ entry.date }}</td>
-                    <td>{{ entry.get_entry_type_display }}</td>
-                    <td class="{% if entry.amount >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold">
-                        ${{ entry.amount|floatformat:2 }}
-                    </td>
-                    <td>{{ entry.description }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4">No cash transactions found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="row g-4 justify-content-center align-items-stretch">
+    <!-- Current Balance Card -->
+    <div class="col-lg-5 mb-3 d-flex">
+        <div class="card overflow-hidden w-100" style="border: 1px solid rgba(56, 189, 248, 0.3);">
+            <div class="card-body p-4 p-xl-5 text-center position-relative d-flex flex-column justify-content-center">
+                <div class="position-absolute" style="top: -50px; right: -50px; width: 150px; height: 150px; background: rgba(56, 189, 248, 0.2); border-radius: 50%; filter: blur(40px);"></div>
+                <div class="position-absolute" style="bottom: -50px; left: -50px; width: 150px; height: 150px; background: rgba(99, 102, 241, 0.2); border-radius: 50%; filter: blur(40px);"></div>
+                
+                <h5 class="text-muted text-uppercase letter-spacing-1 mb-3 position-relative z-1">Available Cash</h5>
+                <h2 class="display-4 fw-bold text-white mb-0 position-relative z-1">${{ current_balance|floatformat:2|intcomma }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deposit/Withdraw Form -->
+    <div class="col-lg-7 mb-3 d-flex">
+        <div class="card w-100">
+            <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+                <h5 class="mb-0">Transfer Funds</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Form Errors -->
+                    {% if form.errors %}
+                        <div class="alert alert-danger py-2 mb-3">
+                            <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted mb-1">Transaction Type</label>
+                            <div class="d-flex gap-2">
+                                <div class="form-check custom-radio flex-grow-1 ps-0">
+                                    <input class="form-check-input d-none" type="radio" name="entry_type" id="deposit" value="DEPOSIT" {% if form.entry_type.value == 'DEPOSIT' or not form.entry_type.value %}checked{% endif %}>
+                                    <label class="form-check-label w-100 text-center py-2 rounded-3 border" for="deposit" style="cursor: pointer; border-color: rgba(52, 211, 153, 0.3) !important; color: var(--success-color); transition: all 0.2s;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                        Deposit
+                                    </label>
+                                </div>
+                                <div class="form-check custom-radio flex-grow-1 ps-0">
+                                    <input class="form-check-input d-none" type="radio" name="entry_type" id="withdraw" value="WITHDRAWAL" {% if form.entry_type.value == 'WITHDRAWAL' %}checked{% endif %}>
+                                    <label class="form-check-label w-100 text-center py-2 rounded-3 border" for="withdraw" style="cursor: pointer; border-color: rgba(248, 113, 113, 0.3) !important; color: var(--danger-color); transition: all 0.2s;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                        Withdraw
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="id_amount" class="form-label text-muted mb-1">Amount ($)</label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0 bg-transparent text-muted" style="border-color: var(--glass-border);">$</span>
+                                {{ form.amount }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label for="id_date" class="form-label text-muted mb-1">Date</label>
+                            {{ form.date }}
+                        </div>
+                        <div class="col-md-8">
+                            <label for="id_description" class="form-label text-muted mb-1">Description</label>
+                            {{ form.description }}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 text-end">
+                        <button type="submit" class="btn btn-primary px-4 py-2 rounded-pill">
+                            Confirm Transfer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

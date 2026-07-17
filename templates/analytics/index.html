@@ -1,29 +1,130 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .stat-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -1px;
+        margin-bottom: 0;
+    }
+    
+    .symbol-box {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Analytics</h2>
+<div class="d-flex justify-content-between align-items-end mb-4 pb-2 border-bottom" style="border-color: var(--glass-border) !important;">
+    <div>
+        <h2 class="mb-1">Analytics & Performance</h2>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Deep dive into your trading strategies and outcomes.</p>
+    </div>
+</div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <h5>Avg Holding Days</h5>
-            <h3>{{ avg_holding_days|floatformat:1 }}</h3>
+    <div class="col-md-4">
+        <div class="card h-100 p-4 text-center d-flex flex-column justify-content-center">
+            <div class="stat-label">Avg Holding Days</div>
+            <div class="stat-value text-white">{{ avg_holding_days|floatformat:1 }}</div>
         </div>
     </div>
-    <div class="col-md-9">
-        <div class="card p-3">
-            <h5>Monthly Realized P/L</h5>
-            <canvas id="monthlyChart" height="80"></canvas>
+    <div class="col-md-8">
+        <div class="card h-100 p-4">
+            <div class="stat-label mb-3">Monthly Realized P/L (This Year)</div>
+            <div style="position: relative; height: 150px; width: 100%;">
+                <canvas id="monthlyChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="row mb-4">
+<!-- Best and Worst Single Trades -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="stat-label">Best Single Trade</div>
+                    <div class="p-2 rounded-circle" style="background: rgba(52, 211, 153, 0.15); color: var(--success-color);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                    </div>
+                </div>
+                {% if best_trade %}
+                    <div class="mb-2">
+                        <span class="symbol-box fs-5 me-2" style="border-color: rgba(52, 211, 153, 0.3);">{{ best_trade.stock.symbol }}</span>
+                    </div>
+                    <div class="text-success fw-bold fs-3 mb-1">+${{ best_trade.profit_loss|floatformat:2|intcomma }}</div>
+                    <div class="text-success small fw-medium mb-3">+{{ best_trade.profit_loss_percent|floatformat:2 }}% ROI</div>
+                    
+                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.8rem;">
+                        <div>Bought: {{ best_trade.buy_date|date:"M j, Y" }}</div>
+                        <div>Sold: {{ best_trade.sell_date|date:"M j, Y" }}</div>
+                    </div>
+                {% else %}
+                    <p class="text-muted mt-2 mb-0">No data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="stat-label">Worst Single Trade</div>
+                    <div class="p-2 rounded-circle" style="background: rgba(248, 113, 113, 0.15); color: var(--danger-color);">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    </div>
+                </div>
+                {% if worst_trade %}
+                    <div class="mb-2">
+                        <span class="symbol-box fs-5 me-2" style="border-color: rgba(248, 113, 113, 0.3);">{{ worst_trade.stock.symbol }}</span>
+                    </div>
+                    <div class="{% if worst_trade.profit_loss >= 0 %}text-success{% else %}text-danger{% endif %} fw-bold fs-3 mb-1">
+                        {% if worst_trade.profit_loss > 0 %}+{% endif %}${{ worst_trade.profit_loss|floatformat:2|intcomma }}
+                    </div>
+                    <div class="{% if worst_trade.profit_loss_percent >= 0 %}text-success{% else %}text-danger{% endif %} small fw-medium mb-3">
+                        {% if worst_trade.profit_loss_percent > 0 %}+{% endif %}{{ worst_trade.profit_loss_percent|floatformat:2 }}% ROI
+                    </div>
+                    
+                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.8rem;">
+                        <div>Bought: {{ worst_trade.buy_date|date:"M j, Y" }}</div>
+                        <div>Sold: {{ worst_trade.sell_date|date:"M j, Y" }}</div>
+                    </div>
+                {% else %}
+                    <p class="text-muted mt-2 mb-0">No data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
     <div class="col-md-12">
-        <div class="card p-3">
-            <h5>Yearly Summary</h5>
+        <div class="card">
+            <div class="card-header bg-transparent pt-4 pb-0 border-bottom-0">
+                <h5 class="mb-0">Yearly Performance Summary</h5>
+            </div>
             <div class="table-responsive">
-                <table class="table table-dark table-hover text-center">
+                <table class="table table-hover align-middle mb-0 text-center">
                     <thead>
                         <tr>
                             <th>Year</th>
@@ -35,15 +136,19 @@
                     <tbody>
                         {% for y in yearly_data %}
                         <tr>
-                            <td>{{ y.year }}</td>
+                            <td class="fw-bold">{{ y.year }}</td>
                             <td>{{ y.total_trades }}</td>
-                            <td class="{% if y.realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                ${{ y.realized_pnl|floatformat:2 }}
+                            <td class="{% if y.realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                                {% if y.realized_pnl > 0 %}+{% endif %}${{ y.realized_pnl|floatformat:2|intcomma }}
                             </td>
-                            <td>{{ y.win_rate|floatformat:1 }}%</td>
+                            <td>
+                                <span class="badge {% if y.win_rate >= 50 %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ y.win_rate|floatformat:1 }}%
+                                </span>
+                            </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4">No yearly data.</td></tr>
+                        <tr><td colspan="4" class="py-4 text-muted">No yearly data available.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -54,61 +159,51 @@
 
 <div class="row g-4 mb-4">
     <div class="col-md-6">
-        <div class="card p-3">
-            <h5 class="text-success">Top 5 Most Profitable Stocks</h5>
-            <table class="table table-dark table-sm text-center">
-                <tr><th>Symbol</th><th>P/L</th></tr>
-                {% for s in top_5_stocks %}
-                <tr>
-                    <td>{{ s.stock__symbol }}</td>
-                    <td class="text-success">${{ s.total_pnl|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-            </table>
+        <div class="card">
+            <div class="card-header bg-transparent pt-4 pb-0 border-bottom-0">
+                <h5 class="mb-0 text-success">Top 5 Most Profitable Stocks</h5>
+            </div>
+            <div class="table-responsive p-3">
+                <table class="table table-sm table-hover align-middle mb-0 border-0">
+                    <tbody>
+                        {% for s in top_5_stocks %}
+                        <tr class="border-0">
+                            <td class="border-0 ps-3 py-2"><span class="symbol-box" style="border-color: rgba(52, 211, 153, 0.2);">{{ s.stock__symbol }}</span></td>
+                            <td class="text-end border-0 pe-3 py-2 text-success fw-medium">+${{ s.total_pnl|floatformat:2|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-4 text-muted border-0">No data available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card p-3">
-            <h5 class="text-danger">Top 5 Worst Performing Stocks</h5>
-            <table class="table table-dark table-sm text-center">
-                <tr><th>Symbol</th><th>P/L</th></tr>
-                {% for s in worst_5_stocks %}
-                <tr>
-                    <td>{{ s.stock__symbol }}</td>
-                    <td class="text-danger">${{ s.total_pnl|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-            </table>
+        <div class="card">
+            <div class="card-header bg-transparent pt-4 pb-0 border-bottom-0">
+                <h5 class="mb-0 text-danger">Top 5 Worst Performing Stocks</h5>
+            </div>
+            <div class="table-responsive p-3">
+                <table class="table table-sm table-hover align-middle mb-0 border-0">
+                    <tbody>
+                        {% for s in worst_5_stocks %}
+                        <tr class="border-0">
+                            <td class="border-0 ps-3 py-2"><span class="symbol-box" style="border-color: rgba(248, 113, 113, 0.2);">{{ s.stock__symbol }}</span></td>
+                            <td class="text-end border-0 pe-3 py-2 {% if s.total_pnl >= 0 %}text-success{% else %}text-danger{% endif %} fw-medium">
+                                {% if s.total_pnl > 0 %}+{% endif %}${{ s.total_pnl|floatformat:2|intcomma }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center py-4 text-muted border-0">No data available.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="card p-3 text-center">
-            <h5>Best Single Trade</h5>
-            {% if best_trade %}
-                <h3 class="text-success">{{ best_trade.stock.symbol }}</h3>
-                <p>+${{ best_trade.profit_loss|floatformat:2 }} ({{ best_trade.profit_loss_percent|floatformat:2 }}%)</p>
-                <small>Bought: {{ best_trade.buy_date }} | Sold: {{ best_trade.sell_date }}</small>
-            {% else %}
-                <p>N/A</p>
-            {% endif %}
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card p-3 text-center">
-            <h5>Worst Single Trade</h5>
-            {% if worst_trade %}
-                <h3 class="text-danger">{{ worst_trade.stock.symbol }}</h3>
-                <p>${{ worst_trade.profit_loss|floatformat:2 }} ({{ worst_trade.profit_loss_percent|floatformat:2 }}%)</p>
-                <small>Bought: {{ worst_trade.buy_date }} | Sold: {{ worst_trade.sell_date }}</small>
-            {% else %}
-                <p>N/A</p>
-            {% endif %}
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -120,8 +215,12 @@
     
     if (months.length > 0) {
         const ctx = document.getElementById('monthlyChart').getContext('2d');
-        const backgroundColors = pnl.map(value => value >= 0 ? 'rgba(0, 230, 118, 0.6)' : 'rgba(255, 23, 68, 0.6)');
+        const backgroundColors = pnl.map(value => value >= 0 ? 'rgba(52, 211, 153, 0.6)' : 'rgba(248, 113, 113, 0.6)');
+        const borderColors = pnl.map(value => value >= 0 ? 'rgba(52, 211, 153, 1)' : 'rgba(248, 113, 113, 1)');
         
+        Chart.defaults.color = 'rgba(255, 255, 255, 0.5)';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
         new Chart(ctx, {
             type: 'bar',
             data: {
@@ -130,11 +229,47 @@
                     label: 'Realized P/L',
                     data: pnl,
                     backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
-                scales: { y: { beginAtZero: true } }
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(20, 20, 25, 0.9)',
+                        titleColor: 'rgba(255,255,255,0.6)',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+                        ticks: {
+                            callback: function(value) { return '$' + value; }
+                        }
+                    }
+                }
             }
         });
     }

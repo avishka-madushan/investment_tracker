@@ -1,93 +1,245 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .stat-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -1px;
+        margin-bottom: 0;
+    }
+    .symbol-box {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+
+    /* Custom Stock Dropdown for Analysis */
+    .stock-dropdown {
+        position: relative;
+    }
+    .stock-dropdown-trigger {
+        cursor: pointer;
+        user-select: none;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        color: #fff;
+    }
+    .stock-dropdown-trigger svg {
+        opacity: 0.5;
+        transition: transform 0.2s;
+    }
+    .stock-dropdown.open .stock-dropdown-trigger svg {
+        transform: rotate(180deg);
+    }
+    .stock-dropdown-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        margin-top: 4px;
+        background: rgba(20, 20, 30, 0.98);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+        animation: dropdownSlide 0.2s ease;
+    }
+    @keyframes dropdownSlide {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .stock-dropdown.open .stock-dropdown-menu {
+        display: block;
+    }
+    .stock-dropdown-search {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .stock-dropdown-search .form-control {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        color: #fff;
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+    .stock-dropdown-search .form-control:focus {
+        background: rgba(255,255,255,0.09);
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: none;
+    }
+    .stock-dropdown-search .form-control::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+    .stock-dropdown-list {
+        max-height: 252px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+    .stock-dropdown-list::-webkit-scrollbar { width: 5px; }
+    .stock-dropdown-list::-webkit-scrollbar-track { background: transparent; }
+    .stock-dropdown-list::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px;
+    }
+    .stock-dropdown-item {
+        padding: 10px 14px;
+        color: var(--text-main);
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .stock-dropdown-item:hover {
+        background: rgba(99, 102, 241, 0.15);
+        color: #fff;
+    }
+    .stock-dropdown-item.selected {
+        background: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+        font-weight: 500;
+    }
+    .stock-dropdown-item.hidden { display: none; }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Stock Analysis</h2>
-
-<form method="get" class="mb-4">
-    <div class="row g-3 align-items-center">
-        <div class="col-auto">
-            <select name="stock_id" class="form-select">
-                <option value="">— Select Stock —</option>
-                {% for s in stocks %}
-                <option value="{{ s.id }}" {% if selected_stock and selected_stock.id == s.id %}selected{% endif %}>
-                    {{ s.symbol }} - {{ s.company }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Analyze</button>
-        </div>
+<div class="d-flex justify-content-between align-items-end mb-4 pb-2 border-bottom" style="border-color: var(--glass-border) !important;">
+    <div>
+        <h2 class="mb-1">Stock Analysis</h2>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Detailed performance and history of individual assets.</p>
     </div>
-</form>
+</div>
+
+<div class="card mb-4 p-4">
+    <form method="get" id="analysisForm">
+        <div class="row align-items-end g-3">
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label text-muted mb-1">Select Asset to Analyze</label>
+                <!-- Hidden Select for Form Submission -->
+                <select name="stock_id" id="id_stock" class="d-none">
+                    <option value="">— Select Stock —</option>
+                    {% for s in stocks %}
+                        <option value="{{ s.id }}" {% if selected_stock and selected_stock.id == s.id %}selected{% endif %}>
+                            {{ s.symbol }} - {{ s.company }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <!-- Custom Dropdown UI -->
+                <div class="stock-dropdown" id="stockDropdown">
+                    <div class="position-relative">
+                        <input type="text" class="form-control" id="stockSearch" placeholder="— Select Stock —" autocomplete="off" style="padding-right: 30px; cursor: pointer; background: rgba(255, 255, 255, 0.05);" value="{% if selected_stock %}{{ selected_stock.symbol }} - {{ selected_stock.company }}{% endif %}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; pointer-events: none;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <div class="stock-dropdown-menu" id="stockMenu">
+                        <div class="stock-dropdown-list" id="stockList">
+                            {% for s in stocks %}
+                            <div class="stock-dropdown-item {% if selected_stock and selected_stock.id == s.id %}selected{% endif %}" data-value="{{ s.id }}" data-label="{{ s.symbol }} - {{ s.company }}">
+                                {{ s.symbol }} - {{ s.company }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary px-4">Analyze</button>
+            </div>
+        </div>
+    </form>
+</div>
 
 {% if selected_stock %}
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <h5>Total Trades</h5>
-            <h3>{{ total_trades }}</h3>
+        <div class="card h-100 p-4 text-center d-flex flex-column justify-content-center">
+            <div class="stat-label">Total Trades</div>
+            <div class="stat-value text-white">{{ total_trades }}</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <h5>Total Realized P/L</h5>
-            <h3 class="{% if total_realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
-                ${{ total_realized_pnl|floatformat:2 }}
-            </h3>
+        <div class="card h-100 p-4 text-center d-flex flex-column justify-content-center">
+            <div class="stat-label">Total Realized P/L</div>
+            <div class="stat-value {% if total_realized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {% if total_realized_pnl > 0 %}+{% endif %}${{ total_realized_pnl|floatformat:2|intcomma }}
+            </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <h5>Avg Holding Days</h5>
-            <h3>{{ avg_holding_days|floatformat:1 }}</h3>
+        <div class="card h-100 p-4 text-center d-flex flex-column justify-content-center">
+            <div class="stat-label">Avg Holding Days</div>
+            <div class="stat-value text-white">{{ avg_holding_days|floatformat:1 }}</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card p-3 text-center">
-            <h5>Win Rate</h5>
-            <h3 class="text-info">{{ win_rate|floatformat:1 }}%</h3>
+        <div class="card h-100 p-4 text-center d-flex flex-column justify-content-center">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-value text-info">{{ win_rate|floatformat:1 }}%</div>
         </div>
     </div>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card p-3">
-            <h5>Price History & SMAs (Last 90 Days)</h5>
-            <canvas id="priceChart" height="100"></canvas>
+        <div class="card p-4">
+            <div class="stat-label mb-3">Price History & SMAs (Last 90 Days)</div>
+            <div style="position: relative; height: 350px; width: 100%;">
+                <canvas id="priceChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <div class="card p-3">
-            <h5>Transaction History for {{ selected_stock.symbol }}</h5>
+        <div class="card">
+            <div class="card-header bg-transparent pt-4 pb-0 border-bottom-0">
+                <h5 class="mb-0">Transaction History for <span class="text-primary">{{ selected_stock.symbol }}</span></h5>
+            </div>
             <div class="table-responsive">
-                <table class="table table-dark table-striped text-center">
+                <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Date</th>
+                            <th class="ps-4">Date</th>
                             <th>Type</th>
                             <th>Quantity</th>
                             <th>Price</th>
-                            <th>Notes</th>
+                            <th class="pe-4">Notes</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for tx in transactions %}
                         <tr>
-                            <td>{{ tx.date }}</td>
-                            <td class="{% if tx.transaction_type == 'BUY' %}text-success{% else %}text-danger{% endif %} fw-bold">
-                                {{ tx.transaction_type }}
+                            <td class="ps-4 text-muted small">{{ tx.date|date:"M j, Y" }}</td>
+                            <td>
+                                <span class="badge {% if tx.transaction_type == 'BUY' %}badge-success{% else %}badge-danger{% endif %} border-0 px-2 py-1">
+                                    {{ tx.transaction_type }}
+                                </span>
                             </td>
-                            <td>{{ tx.quantity|floatformat:0 }}</td>
-                            <td>${{ tx.price|floatformat:2 }}</td>
-                            <td>{{ tx.notes }}</td>
+                            <td>{{ tx.quantity|floatformat:"-4" }}</td>
+                            <td>${{ tx.price|floatformat:2|intcomma }}</td>
+                            <td class="pe-4 text-muted small">{{ tx.notes|default:"-" }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="5">No transactions for this stock.</td></tr>
+                        <tr><td colspan="5" class="text-center py-5 text-muted">No transactions recorded for this asset.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -111,20 +263,130 @@
 
     if (dates.length > 0) {
         const ctx = document.getElementById('priceChart').getContext('2d');
+        
+        Chart.defaults.color = 'rgba(255, 255, 255, 0.5)';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
         new Chart(ctx, {
             type: 'line',
             data: {
                 labels: dates,
                 datasets: [
-                    { label: 'Close Price', data: close, borderColor: '#ffffff', backgroundColor: 'transparent', tension: 0.1 },
-                    { label: 'SMA 4', data: sma4, borderColor: '#00e676', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
-                    { label: 'SMA 9', data: sma9, borderColor: '#29b6f6', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
-                    { label: 'SMA 50', data: sma50, borderColor: '#ff1744', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1 },
+                    { label: 'Close Price', data: close, borderColor: 'rgba(255, 255, 255, 0.9)', backgroundColor: 'transparent', tension: 0.1, borderWidth: 2, pointRadius: 0 },
+                    { label: 'SMA 4', data: sma4, borderColor: 'rgba(52, 211, 153, 0.8)', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'SMA 9', data: sma9, borderColor: 'rgba(56, 189, 248, 0.8)', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1, borderWidth: 1.5, pointRadius: 0 },
+                    { label: 'SMA 50', data: sma50, borderColor: 'rgba(248, 113, 113, 0.8)', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.1, borderWidth: 1.5, pointRadius: 0 },
                 ]
             },
-            options: { responsive: true }
+            options: { 
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(20, 20, 25, 0.9)',
+                        titleColor: 'rgba(255,255,255,0.6)',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 12
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                        ticks: { maxTicksLimit: 10 }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                        ticks: {
+                            callback: function(value) { return '$' + value; }
+                        }
+                    }
+                }
+            }
         });
     }
 </script>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropdown = document.getElementById('stockDropdown');
+    const search = document.getElementById('stockSearch');
+    const list = document.getElementById('stockList');
+    const items = list.querySelectorAll('.stock-dropdown-item');
+    const hiddenSelect = document.getElementById('id_stock');
+
+    // Toggle dropdown on click
+    search.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.add('open');
+        this.value = ''; // clear to allow search
+        filterItems('');
+    });
+
+    // Select item
+    items.forEach(function(item) {
+        item.addEventListener('click', function() {
+            const val = this.dataset.value;
+            const label = this.dataset.label;
+            hiddenSelect.value = val;
+            search.value = label;
+            items.forEach(function(i) { i.classList.remove('selected'); });
+            this.classList.add('selected');
+            dropdown.classList.remove('open');
+        });
+    });
+
+    // Search filter
+    search.addEventListener('input', function() {
+        dropdown.classList.add('open'); // open if they start typing
+        filterItems(this.value.toLowerCase());
+    });
+
+    function filterItems(query) {
+        items.forEach(function(item) {
+            const match = item.dataset.label.toLowerCase().includes(query);
+            item.classList.toggle('hidden', !match);
+        });
+    }
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+            // Restore text if no item was newly selected and we click away
+            if (hiddenSelect.value) {
+                const opt = hiddenSelect.querySelector('option[value="' + hiddenSelect.value + '"]');
+                if (opt) search.value = opt.textContent.trim();
+            } else {
+                search.value = '';
+            }
+        }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            dropdown.classList.remove('open');
+            if (hiddenSelect.value) {
+                const opt = hiddenSelect.querySelector('option[value="' + hiddenSelect.value + '"]');
+                if (opt) search.value = opt.textContent.trim();
+            } else {
+                search.value = '';
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

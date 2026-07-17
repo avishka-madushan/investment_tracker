@@ -1,64 +1,89 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .company-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .symbol-box {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Current Holdings</h2>
+<div class="d-flex justify-content-between align-items-end mb-4 pb-2 border-bottom" style="border-color: var(--glass-border) !important;">
+    <div>
+        <h2 class="mb-1">Active Holdings</h2>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Your currently open stock positions.</p>
+    </div>
+    <a href="{% url 'transactions:add' %}" class="btn btn-primary btn-sm d-flex align-items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Trade
+    </a>
+</div>
 
-<div class="card p-3">
-    <div class="table-responsive">
-        <table class="table table-dark table-hover text-center">
-            <thead>
-                <tr>
-                    <th>Symbol</th>
-                    <th>Company</th>
-                    <th>Sector</th>
-                    <th>Quantity</th>
-                    <th>Avg Buy Price</th>
-                    <th>Latest Close</th>
-                    <th>Current Value</th>
-                    <th>Unrealized P/L</th>
-                    <th>P/L %</th>
-                    <th>SMA 4</th>
-                    <th>SMA 9</th>
-                    <th>SMA 50</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for h in holdings %}
-                <tr>
-                    <td><a href="{% url 'analytics:chart' h.stock_id %}" target="_blank">{{ h.symbol }}</a></td>
-                    <td>{{ h.company }}</td>
-                    <td>{{ h.sector }}</td>
-                    <td>{{ h.quantity|floatformat:0 }}</td>
-                    <td>${{ h.avg_price|floatformat:2 }}</td>
-                    <td>${{ h.latest_price|floatformat:2 }}</td>
-                    <td>${{ h.current_value|floatformat:2 }}</td>
-                    <td class="{% if h.unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
-                        ${{ h.unrealized_pnl|floatformat:2 }}
-                    </td>
-                    <td class="{% if h.unrealized_pnl_percent >= 0 %}text-success{% else %}text-danger{% endif %}">
-                        {{ h.unrealized_pnl_percent|floatformat:2 }}%
-                    </td>
-                    <td>{{ h.sma_4|default_if_none:"-"|floatformat:2 }}</td>
-                    <td>{{ h.sma_9|default_if_none:"-"|floatformat:2 }}</td>
-                    <td>{{ h.sma_50|default_if_none:"-"|floatformat:2 }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="12">No current holdings.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr class="fw-bold fs-5">
-                    <td colspan="6" class="text-end">Total:</td>
-                    <td>${{ total_current_value|floatformat:2 }}</td>
-                    <td class="{% if total_unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %}">
-                        ${{ total_unrealized_pnl|floatformat:2 }}
-                    </td>
-                    <td colspan="4"></td>
-                </tr>
-            </tfoot>
-        </table>
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Asset</th>
+                            <th>Quantity</th>
+                            <th>Avg Buy Price</th>
+                            <th>Current Price</th>
+                            <th>Current Value</th>
+                            <th class="text-end pe-4">Unrealized P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in holdings %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="company-cell">
+                                    <span class="symbol-box">{{ h.symbol }}</span>
+                                    <span class="text-muted small text-truncate" style="max-width: 150px;">{{ h.company }}</span>
+                                </div>
+                            </td>
+                            <td>{{ h.quantity|floatformat:"-4" }}</td>
+                            <td>${{ h.avg_price|floatformat:2|intcomma }}</td>
+                            <td>${{ h.latest_price|floatformat:2|intcomma }}</td>
+                            <td class="text-white fw-medium">${{ h.current_value|floatformat:2|intcomma }}</td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex flex-column align-items-end">
+                                    <span class="{% if h.unrealized_pnl >= 0 %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                                        {% if h.unrealized_pnl > 0 %}+{% endif %}${{ h.unrealized_pnl|floatformat:2|intcomma }}
+                                    </span>
+                                    <span class="badge {% if h.unrealized_pnl_percent >= 0 %}badge-success{% else %}badge-danger{% endif %} mt-1" style="font-size: 0.7rem;">
+                                        {% if h.unrealized_pnl_percent > 0 %}+{% endif %}{{ h.unrealized_pnl_percent|floatformat:2 }}%
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="mb-3 opacity-50"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <p class="mb-0">You have no active holdings.</p>
+                                <a href="{% url 'transactions:add' %}" class="btn btn-outline-light btn-sm mt-3 rounded-pill">Make a Trade</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

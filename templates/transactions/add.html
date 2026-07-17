@@ -1,16 +1,253 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+    .custom-radio input:checked + label[for="buy_action"] {
+        background: rgba(52, 211, 153, 0.15);
+        border-color: var(--success-color) !important;
+        font-weight: 600;
+    }
+    .custom-radio input:checked + label[for="sell_action"] {
+        background: rgba(248, 113, 113, 0.15);
+        border-color: var(--danger-color) !important;
+        font-weight: 600;
+    }
+    .custom-radio label:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    .input-group-text {
+        border-radius: 12px 0 0 12px;
+    }
+    .input-group .form-control {
+        border-radius: 0 12px 12px 0;
+    }
+    .input-group:focus-within .input-group-text {
+        border-color: rgba(99, 102, 241, 0.5);
+        color: #818cf8 !important;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: 0.5;
+        cursor: pointer;
+    }
+
+    /* Custom Stock Dropdown */
+    .stock-dropdown {
+        position: relative;
+    }
+    .stock-dropdown-trigger {
+        cursor: pointer;
+        user-select: none;
+    }
+    .stock-dropdown-trigger svg {
+        opacity: 0.5;
+        transition: transform 0.2s;
+    }
+    .stock-dropdown.open .stock-dropdown-trigger svg {
+        transform: rotate(180deg);
+    }
+    .stock-dropdown-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        margin-top: 4px;
+        background: rgba(20, 20, 30, 0.98);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+        animation: dropdownSlide 0.2s ease;
+    }
+    @keyframes dropdownSlide {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .stock-dropdown.open .stock-dropdown-menu {
+        display: block;
+    }
+    .stock-dropdown-search {
+        padding: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .stock-dropdown-search .form-control {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        color: #fff;
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+    .stock-dropdown-search .form-control:focus {
+        background: rgba(255,255,255,0.09);
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: none;
+    }
+    .stock-dropdown-search .form-control::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+    .stock-dropdown-list {
+        max-height: 252px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+    .stock-dropdown-list::-webkit-scrollbar {
+        width: 5px;
+    }
+    .stock-dropdown-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .stock-dropdown-list::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.15);
+        border-radius: 10px;
+    }
+    .stock-dropdown-item {
+        padding: 10px 14px;
+        color: var(--text-main);
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .stock-dropdown-item:hover {
+        background: rgba(99, 102, 241, 0.15);
+        color: #fff;
+    }
+    .stock-dropdown-item.selected {
+        background: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+        font-weight: 500;
+    }
+    .stock-dropdown-item.hidden {
+        display: none;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h2 class="mb-4 text-center">Add Transaction</h2>
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-body">
-                <form method="post">
+<div class="d-flex justify-content-between align-items-end mb-4 pb-2 border-bottom" style="border-color: var(--glass-border) !important;">
+    <div>
+        <h2 class="mb-1">Execute Trade</h2>
+        <p class="text-muted mb-0" style="font-size: 0.9rem;">Buy or sell assets in your portfolio.</p>
+    </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+    <div class="col-md-10 col-lg-8">
+        <div class="card shadow-lg" style="border: 1px solid rgba(255,255,255,0.1);">
+            <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Trade Order</h5>
+                    <span class="badge bg-dark border" style="font-size: 0.8rem; font-weight: 500; border-color: rgba(255,255,255,0.2) !important;">
+                        Cash: ${{ cash_balance|floatformat:2|intcomma }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="card-body p-4">
+                <form method="post" class="needs-validation" novalidate>
                     {% csrf_token %}
-                    {{ form|crispy }}
-                    <button type="submit" class="btn btn-success mt-3 w-100">Submit Transaction</button>
+                    
+                    <!-- Form Errors -->
+                    {% if form.errors %}
+                        <div class="alert alert-danger py-2 mb-3">
+                            <ul class="mb-0 ps-3" style="font-size: 0.85rem;">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <!-- Trade Action Toggle (Buy/Sell) -->
+                        <div class="col-md-5">
+                            <label class="form-label text-muted d-block mb-1">Action</label>
+                            <div class="d-flex gap-2">
+                                <div class="form-check custom-radio flex-grow-1 ps-0">
+                                    <input class="form-check-input d-none" type="radio" name="transaction_type" id="buy_action" value="BUY" {% if form.transaction_type.value == 'BUY' or not form.transaction_type.value %}checked{% endif %}>
+                                    <label class="form-check-label w-100 text-center py-2 rounded-3 border" for="buy_action" style="cursor: pointer; border-color: rgba(52, 211, 153, 0.3) !important; color: var(--success-color); transition: all 0.2s;">
+                                        Buy
+                                    </label>
+                                </div>
+                                <div class="form-check custom-radio flex-grow-1 ps-0">
+                                    <input class="form-check-input d-none" type="radio" name="transaction_type" id="sell_action" value="SELL" {% if form.transaction_type.value == 'SELL' %}checked{% endif %}>
+                                    <label class="form-check-label w-100 text-center py-2 rounded-3 border" for="sell_action" style="cursor: pointer; border-color: rgba(248, 113, 113, 0.3) !important; color: var(--danger-color); transition: all 0.2s;">
+                                        Sell
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stock Selection (Custom Searchable Dropdown) -->
+                        <div class="col-md-7">
+                            <label class="form-label text-muted mb-1">Select Stock</label>
+                            <!-- Hidden real select for form submission -->
+                            <select name="stock" id="id_stock" class="d-none">
+                                <option value="">— Select stock —</option>
+                                {% for stock in form.stock.field.queryset %}
+                                    <option value="{{ stock.pk }}" {% if form.stock.value|stringformat:"s" == stock.pk|stringformat:"s" %}selected{% endif %}>{{ stock }}</option>
+                                {% endfor %}
+                            </select>
+                            <!-- Custom dropdown UI -->
+                            <div class="stock-dropdown" id="stockDropdown">
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="stockSearch" placeholder="— Select stock —" autocomplete="off" style="padding-right: 30px; cursor: pointer; background: rgba(255, 255, 255, 0.05);">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; pointer-events: none;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                                <div class="stock-dropdown-menu" id="stockMenu">
+                                    <div class="stock-dropdown-list" id="stockList">
+                                        {% for stock in form.stock.field.queryset %}
+                                        <div class="stock-dropdown-item" data-value="{{ stock.pk }}" data-label="{{ stock }}">
+                                            {{ stock }}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <!-- Quantity & Price Row -->
+                        <div class="col-md-4">
+                            <label for="id_quantity" class="form-label text-muted mb-1">Quantity</label>
+                            {{ form.quantity }}
+                        </div>
+                        <div class="col-md-4">
+                            <label for="id_price" class="form-label text-muted mb-1">Price / Share</label>
+                            <div class="input-group">
+                                <span class="input-group-text border-end-0 bg-transparent text-muted" style="border-color: var(--glass-border);">$</span>
+                                {{ form.price }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="id_date" class="form-label text-muted mb-1">Date</label>
+                            {{ form.date }}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <label for="id_notes" class="form-label text-muted mb-1">Notes (Optional)</label>
+                            {{ form.notes }}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-end">
+                        <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill w-100 w-md-auto" style="font-size: 1.05rem;">
+                            Submit Order
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -18,21 +255,81 @@
 </div>
 {% endblock %}
 
-{% block extra_css %}
-<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
-{% endblock %}
-
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        new TomSelect("#id_stock",{
-            create: false,
-            sortField: {
-                field: "text",
-                direction: "asc"
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    const dropdown = document.getElementById('stockDropdown');
+    const search = document.getElementById('stockSearch');
+    const list = document.getElementById('stockList');
+    const items = list.querySelectorAll('.stock-dropdown-item');
+    const hiddenSelect = document.getElementById('id_stock');
+
+    // Set initial text if a stock is already selected
+    if (hiddenSelect.value) {
+        const opt = hiddenSelect.querySelector('option[value="' + hiddenSelect.value + '"]');
+        if (opt) search.value = opt.textContent.trim();
+    }
+
+    // Toggle dropdown on click
+    search.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.add('open');
+        this.value = ''; // clear to allow search
+        filterItems('');
+    });
+
+    // Select item
+    items.forEach(function(item) {
+        item.addEventListener('click', function() {
+            const val = this.dataset.value;
+            const label = this.dataset.label;
+            hiddenSelect.value = val;
+            search.value = label;
+            items.forEach(function(i) { i.classList.remove('selected'); });
+            this.classList.add('selected');
+            dropdown.classList.remove('open');
         });
     });
+
+    // Search filter
+    search.addEventListener('input', function() {
+        dropdown.classList.add('open'); // open if they start typing
+        filterItems(this.value.toLowerCase());
+    });
+
+    function filterItems(query) {
+        items.forEach(function(item) {
+            const match = item.dataset.label.toLowerCase().includes(query);
+            item.classList.toggle('hidden', !match);
+        });
+    }
+
+    // Close on outside click
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+            // Restore text if no item was newly selected and we click away
+            if (hiddenSelect.value) {
+                const opt = hiddenSelect.querySelector('option[value="' + hiddenSelect.value + '"]');
+                if (opt) search.value = opt.textContent.trim();
+            } else {
+                search.value = '';
+            }
+        }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            dropdown.classList.remove('open');
+            if (hiddenSelect.value) {
+                const opt = hiddenSelect.querySelector('option[value="' + hiddenSelect.value + '"]');
+                if (opt) search.value = opt.textContent.trim();
+            } else {
+                search.value = '';
+            }
+        }
+    });
+});
 </script>
 {% endblock %}

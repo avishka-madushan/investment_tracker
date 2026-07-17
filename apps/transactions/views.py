@@ -2,10 +2,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import Sum
 
 from .forms import TransactionForm
 from .models import Transaction
 from .services import execute_buy, execute_sell, InsufficientCashError, InsufficientHoldingError
+from apps.portfolio.models import CashAccount
 
 @login_required
 def add_transaction(request):
@@ -31,8 +33,9 @@ def add_transaction(request):
                 form.add_error(None, str(e))
     else:
         form = TransactionForm()
-        
-    return render(request, 'transactions/add.html', {'form': form})
+
+    cash_balance = CashAccount.objects.filter(user=request.user).aggregate(Sum('amount'))['amount__sum'] or 0
+    return render(request, 'transactions/add.html', {'form': form, 'cash_balance': cash_balance})
 
 @login_required
 def transaction_history(request):

@@ -1,26 +1,61 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib import messages
 from django.db.models import Sum, F
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
-from .forms import UserRegistrationForm
+
 from apps.portfolio.models import Holding, ClosedInvestment, CashAccount, PortfolioSnapshot
 
-def register_view(request):
-    if request.method == 'POST':
-        form = UserRegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, "Registration successful.")
-            return redirect('dashboard:index')
+from .forms import UserProfileForm
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
+
+@login_required
+def profile_view(request):
+    form = UserProfileForm(instance=request.user)
+    
+    # Use SetPasswordForm if user has no usable password (Google-only signup)
+    if request.user.has_usable_password():
+        password_form = PasswordChangeForm(request.user)
     else:
-        form = UserRegistrationForm()
-    return render(request, 'registration/register.html', {'form': form})
+        password_form = SetPasswordForm(request.user)
+    
+    if request.method == 'POST':
+        if 'update_profile' in request.POST:
+            form = UserProfileForm(request.POST, instance=request.user)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Your profile has been updated successfully.')
+                return redirect('dashboard:profile')
+        elif 'change_password' in request.POST:
+            if request.user.has_usable_password():
+                password_form = PasswordChangeForm(request.user, request.POST)
+            else:
+                password_form = SetPasswordForm(request.user, request.POST)
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Your password has been changed successfully.')
+                return redirect('dashboard:profile')
+        
+    return render(request, 'dashboard/profile.html', {
+        'form': form,
+        'password_form': password_form,
+    })
+
+@login_required
+def delete_account_view(request):
+    if request.method == 'POST':
+        user = request.user
+        logout(request)
+        user.delete()
+        messages.success(request, 'Your account has been permanently deleted.')
+        return redirect('account_login')
+    return redirect('dashboard:profile')
 
 @login_required
 def dashboard_view(request):
@@ -40,7 +75,7 @@ def dashboard_view(request):
         
         current_value = h.quantity * latest_price
         unrealized_pnl = current_value - (h.quantity * h.avg_price)
-        unrealized_pnl_percent = (unrealized_pnl / (h.quantity * h.avg_price)) * 100 if h.avg_price else 0
+        unrealized_pnl_percent = (unrealized_pnl / (h.quantity * h.avg_price)) * 100 if (h.avg_price and h.quantity) else 0
         
         total_market_value += current_value
         total_unrealized_pnl += unrealized_pnl
@@ -51,7 +86,7 @@ def dashboard_view(request):
             'sector': h.stock.sector,
             'quantity': h.quantity,
             'avg_price': h.avg_price,
-            'current_price': latest_price,
+            'latest_price': latest_price,
             'current_value': current_value,
             'unrealized_pnl': unrealized_pnl,
             'unrealized_pnl_percent': unrealized_pnl_percent
@@ -68,8 +103,8 @@ def dashboard_view(request):
     total_trades = closed_investments.count()
     win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
     
-    best_stock = closed_investments.order_by('-profit_loss_percent').first()
-    worst_stock = closed_investments.order_by('profit_loss_percent').first()
+    best_stock = closed_investments.filter(profit_loss__gt=0).order_by('-profit_loss_percent').first()
+    worst_stock = closed_investments.filter(profit_loss__lt=0).order_by('profit_loss_percent').first()
     
     thirty_days_ago = today - timedelta(days=30)
     snapshots = PortfolioSnapshot.objects.filter(user=user, date__gte=thirty_days_ago).order_by('date')

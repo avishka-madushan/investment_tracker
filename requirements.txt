@@ -10,3 +10,5 @@ websocket-client
 pandas
 numpy
 sqlalchemy
+django-allauth
+PyJWT[crypto]

@@ -12,10 +12,8 @@ urlpatterns = [
     path('portfolio/', include('apps.portfolio.urls')),
     path('analytics/', include('apps.analytics.urls')),
 
-    # Authentication
-    path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('accounts/', include('apps.dashboard.auth_urls')),
+    # Authentication — allauth handles Google login + callback
+    path('accounts/', include('allauth.urls')),
 
     # Redirect root to dashboard (which redirects to login if unauthenticated)
     path('', RedirectView.as_view(url='/dashboard/', permanent=False)),
